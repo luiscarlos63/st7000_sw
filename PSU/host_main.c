@@ -59,7 +59,7 @@
 #include "secure_tiles.h"
 #include "xil_exception.h"
 #include "xgpiops.h"
-#include "sst_mail.h"
+#include "ff.h"
 
 /************************** Variable Definitions *****************************/
 
@@ -80,15 +80,14 @@ XGpioPs Gpio;
 /************************** Function Prototypes ******************************/
 static int SD_Init();
 static int SD_Eject();
-static int SD_ReadFile(char *FileName, u32** DestinationAddress, u32* size);
+static int SD_ReadFile(const char *FileName, u32** DestinationAddress, u32* size);
 
 
 
 /************************** Function Definitions *****************************/
 int main()
 {
-	uint32_t status = 0;
-	int32_t ret = 0;
+	int32_t status = 0;
 
 	Bitstream_t bit1;
 
@@ -97,22 +96,24 @@ int main()
 
     init_platform();
     disable_caches();
+    status = SD_Init();
+    status = st_init();
 
-    bit_init(&bit1);
-    SD_ReadFile(ip_const33_rp_1, pBitBuffAux, &BitSizeAux);
-    bit_binFileReg(&bit1, pBitBuffAux, BitSizeAux);
+    status = bit_init(&bit1);
+    status = SD_ReadFile(ip_const33_rp_1, &pBitBuffAux, &BitSizeAux);
+    status = bit_binFileReg(&bit1, pBitBuffAux, BitSizeAux, 1, 1);
 
 	print("\nBitstreams loaded into memory ");
 	print("\nIPs created");
 
     //Secure initialization
-    st_init();
+
 
     /*
      * Bitstreams attestation process
      */
     //request attestation parameters
-    st_comamnd(ST_BIT_GET_ATTEST, &bit1, sizeof(bit1));
+	status = st_command(ST_BIT_GET_ATTEST, &bit1);
 
     //send
 
@@ -122,6 +123,7 @@ int main()
     	usleep(1000);
     }
 
+    SD_Eject();
     cleanup_platform();
     return 0;
 }
@@ -141,9 +143,9 @@ static int SD_Init()
 	rc = f_mount(&fatfs,Path,0);
 	if (rc) {
 		//xil_printf(" ERROR : f_mount returned %d\r\n", rc);
-		return SST_FAILURE;
+		return 1;
 	}
-	return SST_SUCCESS;
+	return 0;
 }
 
 static int SD_Eject()
@@ -153,14 +155,14 @@ static int SD_Eject()
 	rc = f_mount(0,Path,1);
 	if (rc) {
 		//xil_printf(" ERROR : f_mount returned %d\r\n", rc);
-		return SST_FAILURE;
+		return 1;
 	}
-	return SST_SUCCESS;
+	return 0;
 }
 
 
 
-static int ReadFile(char *FileName, u32** DestinationAddress, u32* size)
+static int SD_ReadFile(const char *FileName, u32** DestinationAddress, u32* size)
 {
 	FIL fil;
 	FRESULT rc;
@@ -169,7 +171,7 @@ static int ReadFile(char *FileName, u32** DestinationAddress, u32* size)
 	rc = f_open(&fil, FileName, FA_READ);
 	if (rc) {
 //		xil_printf(" ERROR : f_open returned %d\r\n", rc);
-		return SST_FAILURE;
+		return 1;
 	}
 	file_size = f_size(&fil);	//file_size = fil.fsize;
 	*size = file_size;
@@ -180,18 +182,18 @@ static int ReadFile(char *FileName, u32** DestinationAddress, u32* size)
 	rc = f_lseek(&fil, 0);
 	if (rc) {
 //		xil_printf(" ERROR : f_lseek returned %d\r\n", rc);
-		return SST_FAILURE;
+		return 2;
 	}
 	rc = f_read(&fil, (void**) *DestinationAddress, file_size, &br);
 	if (rc) {
 //		xil_printf(" ERROR : f_read returned %d\r\n", rc);
-		return SST_FAILURE;
+		return 3;
 	}
 	rc = f_close(&fil);
 	if (rc) {
 //		xil_printf(" ERROR : f_close returned %d\r\n", rc);
-		return SST_FAILURE;
+		return 4;
 	}
 	Xil_DCacheFlush();
-	return SST_SUCCESS;
+	return 0;
 }

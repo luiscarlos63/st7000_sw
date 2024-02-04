@@ -5,8 +5,6 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-#include "sst_mail.h"
-
 #include "xmbox.h"
 #include "xstatus.h"
 #include "xparameters.h"
@@ -31,8 +29,6 @@
 
 /**************************** Type Definitions *******************************/
 
-typedef struct SecureTilesStruct *SecTilesHandle;
-
 
 typedef struct
 {
@@ -45,17 +41,14 @@ typedef struct
 
 typedef struct
 {
-	uint64_t tile;		//reconfigurable partition id
-	uint64_t rm;		//reconfigurable module id
+	uint64_t tileId;		//reconfigurable partition id
+	uint64_t ipId;			//reconfigurable module id
 	uint32_t *data;
 	uint32_t size;
-    bit_attestation_t attest;
+	BitAttestation_t attest;
 }Bitstream_t;
 
-typedef struct SecureTilesStruct
-{
-	uint32_t status;
-};
+
 
 typedef enum SecureTilesCommands
 {
@@ -67,13 +60,6 @@ typedef enum SecureTilesCommands
 	ST_TILE_STATUS 		= 0x30
 }SecTilesComm_t;
 
-typedef struct{
-	uint32_t type;
-	uint32_t msgId;
-	uint32_t *pMsg;
-	uint32_t msgLen;
-}MailMsg_t;
-
 
 /*
  *
@@ -81,11 +67,11 @@ typedef struct{
 int32_t bit_init(Bitstream_t* bit);
 
 /*
- *  registers the bitstream binary data
+ *  registers the bitstream's binary data
  */
-int32_t bit_binFileReg(Bitstream_t* bit, uint32_t *buf, uint32_t lenght);
-
-
+int32_t
+bit_binFileReg(	Bitstream_t* bit, uint32_t *buf, uint32_t lenght,
+				uint32_t ipId, uint32_t tileId);
 
 
 /*
@@ -97,18 +83,9 @@ int32_t st_init();
 /*
 *
 */
-int32_t st_command(SecTilesComm_t type, void *comm, );
+int32_t st_command(SecTilesComm_t type, void *msgContent);
 
 
-
-
-int32_t mailInit();
-
-int32_t mailRecvMsg(u32 *BufferPtr, u32 RequestedBytes, u32 *BytesRecvdPtr);
-
-int32_t mailSendMsg(mailMsg_t *msg,uint32_t *actualSent);
-
-int32_t mailCreateMsg(mailMsg_t *msg, uint32_t type, uint32_t *pMsg, uint32_t msgLen);
 
 
 

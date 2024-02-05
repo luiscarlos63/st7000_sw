@@ -85,6 +85,7 @@ typedef struct
 	uint32_t tileIdSave;		//reconfigurable partition id
 	uint32_t ipIdSave;			//reconfigurable module id
 	uint8_t bitKey[256];
+	//sessionKey[xxx];
 }VaultBit;
 
 
@@ -119,8 +120,6 @@ static XMbox Mbox;
 /************************** Function Prototypes ******************************/
 
 static int32_t mailInit();
-static int32_t mailBuildMsg(Mail_t *msg, SecTilesComm_t type, void *msgContent, uint32_t src);
-static int32_t mailGetParamsMsg(Mail_t *msg, SecTilesComm_t *type, void **msgContent, uint32_t *src);
 static int32_t mailSendMsg(Mail_t *msg);
 static int32_t mailRecvMsg(Mail_t *msg);
 
@@ -130,15 +129,21 @@ static int32_t mailRecvMsg(Mail_t *msg);
 
 int main()
 {
+    int32_ retRecv = 0,
+	   retSend = 0;
 
-	// ----- Initializations -----
+    // ----- Initializations -----
     init_platform();
 
     mailInit();
 
     while(1)
     {
-
+	mailRecvMsg(Mail_t *msg)
+	switch(msg->type)	
+	{
+		case 
+	}
     }
 
     cleanup_platform();
@@ -158,41 +163,6 @@ static int32_t mailSendMsg(Mail_t *msg)
 static int32_t mailRecvMsg(Mail_t *msg)
 {
 	XMbox_ReadBlocking(&Mbox, (uint32_t*)msg, sizeof(Mail_t));
-	return msg->id;
-}
-
-
-static int32_t
-mailBuildMsg(Mail_t *msg, SecTilesComm_t type, void *msgContent, uint32_t src)
-{
-	if(msg == NULL)
-		return -1;
-
-	if(msgContent == NULL)
-		return -2;
-
-	msg->type = type;
-	msg->content = (uint32_t*)msgContent;
-	msg->src = src;
-	msg->id = msgIdCount;
-
-	return msg->id;
-}
-
-
-static int32_t mailGetParamsMsg(Mail_t *msg, SecTilesComm_t *type, void **msgContent, uint32_t *src)
-{
-
-	if(msg == NULL)
-		return -1;
-
-	if(msg->content == NULL)
-		return -2;
-
-	*type 		= msg->type;
-	*msgContent = msg->content;
-	*src		= msg->src;
-
 	return msg->id;
 }
 

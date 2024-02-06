@@ -52,13 +52,20 @@ typedef struct
 
 typedef enum SecureTilesCommands
 {
-	ST_BIT_GET_ATTEST= 0x10,
+	ST_BIT_GET_ATTEST 		= 0x10,
 	ST_BIT_SET_ENC_KEY,
 
-	ST_LOADER_BIT		= 0x20,
+	ST_LOADER_BIT			= 0x20,
 
-	ST_TILE_STATUS 		= 0x30
+	ST_TILE_STATUS 			= 0x30,
+
+
+	//Errors
+	ST_ERROR_TYPE_INV		= 0x80000000,
+	ST_ERROR_CONTENT_INV,
+	ST_ERROR_SOURCE_INV
 }SecTilesComm_t;
+
 
 
 /*

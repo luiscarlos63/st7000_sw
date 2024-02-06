@@ -45,6 +45,7 @@
  *   ps7_uart    115200 (configured by bootrom/bsp)
  */
 
+#define ST_DEBUG_IO
 
 /***************************** Include Files *********************************/
 #include <stdio.h>
@@ -52,9 +53,20 @@
 #include "xil_printf.h"
 
 #include "sleep.h"  // Include the sleep header
+#include "xparameters.h"
+#include "xmbox.h"
+#include "st_debug.h"
+
 
 
 /************************** Constant Definitions *****************************/
+// Hardware definitions
+#define MBOX_DEVICE_ID		XPAR_MBOX_0_DEVICE_ID
+#define MBOX_INTR_ID		XPAR_FABRIC_MBOX_0_VEC_ID
+
+#define ST_MAIL_ID			MBOX_DEVICE_ID
+#define ST_MAIL_INTR_ID		MBOX_INTR_ID
+
 #define MAILBOX_RIT	4	/* mailbox receive interrupt threshold */
 #define MAILBOX_SIT	4	/* mailbox send interrupt threshold */
 
@@ -72,8 +84,8 @@ typedef struct
 
 typedef struct
 {
-	uint64_t tileId;		//reconfigurable partition id
-	uint64_t ipId;			//reconfigurable module id
+	uint32_t tileId;		//reconfigurable partition id
+	uint32_t ipId;			//reconfigurable module id
 	uint32_t *data;
 	uint32_t size;
 	BitAttestation_t attest;
@@ -84,19 +96,24 @@ typedef struct
 	Bitstream_t *bit;		//pointer to a bitstream
 	uint32_t tileIdSave;		//reconfigurable partition id
 	uint32_t ipIdSave;			//reconfigurable module id
-	uint8_t bitKey[256];
-	//sessionKey[xxx];
+	uint8_t bitSessionKey[256];
 }VaultBit;
 
 
 typedef enum SecureTilesCommands
 {
-	ST_BIT_GET_ATTEST= 0x10,
+	ST_BIT_GET_ATTEST 		= 0x10,
 	ST_BIT_SET_ENC_KEY,
 
-	ST_LOADER_BIT		= 0x20,
+	ST_LOADER_BIT			= 0x20,
 
-	ST_TILE_STATUS 		= 0x30
+	ST_TILE_STATUS 			= 0x30,
+
+
+	//Errors
+	ST_ERROR_TYPE_INV		= 0x80000000,
+	ST_ERROR_CONTENT_INV,
+	ST_ERROR_SOURCE_INV
 }SecTilesComm_t;
 
 
@@ -119,6 +136,10 @@ static XMbox Mbox;
 
 /************************** Function Prototypes ******************************/
 
+//Commands
+int32_t stComm_getAttest(Bitstream_t *bit);
+
+
 static int32_t mailInit();
 static int32_t mailSendMsg(Mail_t *msg);
 static int32_t mailRecvMsg(Mail_t *msg);
@@ -129,27 +150,82 @@ static int32_t mailRecvMsg(Mail_t *msg);
 
 int main()
 {
-    int32_ retRecv = 0,
-	   retSend = 0;
 
-    // ----- Initializations -----
+	Mail_t msgComm;
+	int32_t retRecv = 0,
+			retSend = 0;
+	int32_t retComm = 0;
+
+
+	// ----- Initializations -----
     init_platform();
-
+#ifdef ST_DEBUG_IO
+    stDebug_ioPsGpioInit();
+#endif // ST_DEBUG_IO
     mailInit();
 
     while(1)
     {
-	mailRecvMsg(Mail_t *msg)
-	switch(msg->type)	
-	{
-		case 
-	}
+    	retRecv = mailRecvMsg(&msgComm);
+
+		if(msgComm.content != NULL)
+
+    	switch (msgComm.type) {
+			case ST_BIT_GET_ATTEST:
+				stComm_getAttest((Bitstream_t*)msgComm.content);
+			break;
+			case ST_BIT_SET_ENC_KEY:
+
+			break;
+			case ST_LOADER_BIT:
+				//verify if the saved TILE and IP ids still match
+
+				//Decrypt the bitstream key with session key
+
+				//Load the key to the AES module
+
+				//update DFX and trigge the loading process
+			break;
+			case ST_TILE_STATUS:
+
+			break;
+
+			default:
+
+			break;
+		}
+		else
+		{
+			msgComm.type = ST_ERROR_CONTENT_INV;
+		}
+
+    	//Change mail source and send it back (meaning it is ready)
+    	msgComm.src = FROM_VAULT;
+    	retSend = mailSendMsg(&msgComm);
     }
 
     cleanup_platform();
     return 0;
 }
 
+
+/*
+ * COMMANDS
+ */
+
+int32_t stComm_getAttest(Bitstream_t *bit)
+{
+	static val = 0;
+
+	if(val == 0)
+		val = 1;
+	else
+		val = 0;
+
+	stDebug_ioPsGpioSetLED(PS_LED_4, val);
+
+	return 0;
+}
 
 
 
@@ -165,6 +241,10 @@ static int32_t mailRecvMsg(Mail_t *msg)
 	XMbox_ReadBlocking(&Mbox, (uint32_t*)msg, sizeof(Mail_t));
 	return msg->id;
 }
+
+
+
+
 
 
 /*

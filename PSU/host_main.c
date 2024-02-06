@@ -120,7 +120,10 @@ int main()
 
     while(1)
     {
-    	usleep(1000);
+    	usleep(2000000);
+
+    	usleep(2000000);
+
     }
 
     SD_Eject();

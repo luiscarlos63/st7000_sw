@@ -56,11 +56,13 @@
 #include "xparameters.h"
 #include "xmbox.h"
 #include "st_debug.h"
+#include "mb_interface.h"
 
 
 
 /************************** Constant Definitions *****************************/
 // Hardware definitions
+/* --- Mailbox --- */
 #define MBOX_DEVICE_ID		XPAR_MBOX_0_DEVICE_ID
 #define MBOX_INTR_ID		XPAR_FABRIC_MBOX_0_VEC_ID
 
@@ -72,6 +74,17 @@
 
 #define FROM_HOST	0
 #define FROM_VAULT	1
+
+/* --- Stream -
+ * AES key deploy ---*/
+#define KEY_NEW_ADDR 	GPO4
+#define KEY_STREAM_ID 	0
+#define KEY_IV_ID 		1
+
+#define DFXC_VS1_STATUS 0
+#define DFXC_VS2_STATUS 1
+#define DFXC_VS3_STATUS 2
+
 /**************************** Type Definitions *******************************/
 typedef struct
 {
@@ -97,6 +110,7 @@ typedef struct
 	uint32_t tileIdSave;		//reconfigurable partition id
 	uint32_t ipIdSave;			//reconfigurable module id
 	uint8_t bitSessionKey[256];
+	uint8_t status
 }VaultBit;
 
 
@@ -133,13 +147,18 @@ static XMbox Mbox;
 
 
 //TrustedVault
+VaultBit Bitlist[16];
 
 /************************** Function Prototypes ******************************/
 
 //Commands
-int32_t stComm_getAttest(Bitstream_t *bit);
+static int32_t stComm_getAttest(Bitstream_t *bit);
 
-
+// Stream
+static void inline write_key(volatile unsigned int *a);
+static void inline write_IV(volatile unsigned int *a);
+static void inline read_axis_dfxc_status(volatile unsigned int *a, uint8_t id);
+// Mailbox
 static int32_t mailInit();
 static int32_t mailSendMsg(Mail_t *msg);
 static int32_t mailRecvMsg(Mail_t *msg);
@@ -172,7 +191,7 @@ int main()
 
     	switch (msgComm.type) {
 			case ST_BIT_GET_ATTEST:
-				stComm_getAttest((Bitstream_t*)msgComm.content);
+				retComm = stComm_getAttest((Bitstream_t*)msgComm.content);
 			break;
 			case ST_BIT_SET_ENC_KEY:
 
@@ -185,6 +204,7 @@ int main()
 				//Load the key to the AES module
 
 				//update DFX and trigge the loading process
+
 			break;
 			case ST_TILE_STATUS:
 
@@ -215,7 +235,7 @@ int main()
 
 int32_t stComm_getAttest(Bitstream_t *bit)
 {
-	static val = 0;
+	static int8_t val = 0;
 
 	if(val == 0)
 		val = 1;
@@ -224,28 +244,96 @@ int32_t stComm_getAttest(Bitstream_t *bit)
 
 	stDebug_ioPsGpioSetLED(PS_LED_4, val);
 
+	//verifications
+	if(bit == NULL)
+	{
+		return ST_ERROR_TYPE_INV;
+	}
+
+	//generate nouce and store it
+
+
+	//get TrustedVault Hash
+	val = listGetSlot();
+	if(val < 0)
+	{
+		return -2;
+	}
+
+	Bitlist[val].bit = bit;
+	bit->attest.nonce = 0;		//nounce
+
+
+
 	return 0;
 }
 
 
 
+
+/** ------ Stream -------*/
+/*
+ * Write 8 32-bit words as efficiently as possible.
+ */
+static void inline write_key(volatile unsigned int *a)
+{
+    register int a0,  a1,  a2,  a3;
+    register int a4,  a5,  a6,  a7;
+
+
+    a3  = a[3];  a1  = a[1];  a2  = a[2];  a0  = a[0];
+    a7  = a[7];  a5  = a[5];  a6  = a[6];  a4  = a[4];
+
+    putfsl(a0,  KEY_STREAM_ID); putfsl(a1,  KEY_STREAM_ID); putfsl(a2,  KEY_STREAM_ID); putfsl(a3,  KEY_STREAM_ID);
+    putfsl(a4,  KEY_STREAM_ID); putfsl(a5,  KEY_STREAM_ID); putfsl(a6,  KEY_STREAM_ID); putfsl(a7,  KEY_STREAM_ID);
+
+}
+
+/*
+ * Write 4 32-bit words as efficiently as possible.
+ */
+static void inline write_IV(volatile unsigned int *a)
+{
+    register int a0,  a1,  a2,  a3;
+
+    a3  = a[3];  a1  = a[1];  a2  = a[2];  a0  = a[0];
+
+    putfsl(a0,  KEY_IV_ID); putfsl(a1,  KEY_IV_ID); putfsl(a2,  KEY_IV_ID); putfsl(a3,  KEY_IV_ID);
+}
+
+/*
+ * Read 16 32-bit words as efficiently as possible.
+ * Deprecated - The Microblaze cpu will use the AXI_MM interface instead.
+ */
+static void inline read_axis_dfxc_status(volatile unsigned int *a, uint8_t id)
+{
+    register int a0;
+
+    getfsl(a0,  0);
+
+    a[0]  = a0;
+}
+
+/* ------ Mail ----------*/
+/**
+ * Send a message to PSU
+ * Blocking
+ */
 static int32_t mailSendMsg(Mail_t *msg)
 {
 	XMbox_WriteBlocking(&Mbox, (uint32_t*)msg, sizeof(Mail_t));
 	return msg->id;
 }
 
-
+/**
+ * Receive a message from PSU
+ * Blocking
+ */
 static int32_t mailRecvMsg(Mail_t *msg)
 {
 	XMbox_ReadBlocking(&Mbox, (uint32_t*)msg, sizeof(Mail_t));
 	return msg->id;
 }
-
-
-
-
-
 
 /*
  * This function initializes the SST "mail" module. It sets up Mailbox instance

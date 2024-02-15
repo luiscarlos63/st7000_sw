@@ -58,6 +58,7 @@
 #include "st_debug.h"
 #include "mb_interface.h"
 
+#include "crypto/ed25519.h"
 
 
 /************************** Constant Definitions *****************************/
@@ -110,7 +111,7 @@ typedef struct
 	uint32_t tileIdSave;		//reconfigurable partition id
 	uint32_t ipIdSave;			//reconfigurable module id
 	uint8_t bitSessionKey[256];
-	uint8_t status
+	uint8_t status;
 }VaultBit;
 
 
@@ -235,7 +236,7 @@ int main()
 
 int32_t stComm_getAttest(Bitstream_t *bit)
 {
-	static int8_t val = 0;
+	static int32_t val = 0;
 
 	if(val == 0)
 		val = 1;
@@ -251,17 +252,31 @@ int32_t stComm_getAttest(Bitstream_t *bit)
 	}
 
 	//generate nouce and store it
+    unsigned char public_key[32], private_key[64], seed[32], scalar[32];
+    unsigned char other_public_key[32], other_private_key[64];
+    unsigned char shared_secret[32], other_shared_secret[32];
+    unsigned char signature[64];
+    const unsigned char message[] = "Hello, world!";
+    const int message_len = strlen((char*) message);
 
+    val = ed25519_create_seed(seed);
+    ed25519_create_keypair(public_key, private_key, seed);
+    ed25519_sign(signature, message, message_len, public_key, private_key);
+    val = ed25519_verify(signature, message, message_len, public_key);
+
+    /* create two shared secrets - from both perspectives - and check if they're equal */
+    ed25519_key_exchange(shared_secret, other_public_key, private_key);
+    ed25519_key_exchange(other_shared_secret, public_key, other_private_key);
 
 	//get TrustedVault Hash
-	val = listGetSlot();
+	//val = listGetSlot();
 	if(val < 0)
 	{
 		return -2;
 	}
 
 	Bitlist[val].bit = bit;
-	bit->attest.nonce = 0;		//nounce
+	//bit->attest.nonce = 0;		//nounce
 
 
 

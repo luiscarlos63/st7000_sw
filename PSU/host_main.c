@@ -121,7 +121,7 @@ int main()
     while(1)
     {
     	usleep(2000000);
-
+    	status = st_command(ST_BIT_GET_ATTEST, &bit1);
     	usleep(2000000);
 
     }

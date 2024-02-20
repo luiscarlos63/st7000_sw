@@ -24,6 +24,11 @@ typedef struct
 	uint32_t src;
 	uint32_t id;
 }Mail_t;
+
+typedef struct
+{
+
+};
 /***************** Macros (Inline Functions) Definitions *********************/
 
 

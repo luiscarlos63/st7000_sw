@@ -49,6 +49,10 @@ typedef struct
 }Bitstream_t;
 
 
+typedef struct
+{
+	uint8_t sessionNounce
+}SecTiles_t;
 
 typedef enum SecureTilesCommands
 {
